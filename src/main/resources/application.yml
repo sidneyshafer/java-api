@@ -1,0 +1,112 @@
+spring:
+  application:
+    name: java-api
+
+  # Primary Database Configuration
+  datasource:
+    primary:
+      url: ${PRIMARY_DB_URL:jdbc:h2:mem:primarydb;DB_CLOSE_DELAY=-1}
+      username: ${PRIMARY_DB_USERNAME:sa}
+      password: ${PRIMARY_DB_PASSWORD:}
+      driver-class-name: ${PRIMARY_DB_DRIVER:org.h2.Driver}
+      hikari:
+        pool-name: PrimaryHikariPool
+        maximum-pool-size: ${PRIMARY_DB_POOL_SIZE:10}
+        minimum-idle: ${PRIMARY_DB_MIN_IDLE:5}
+        idle-timeout: ${PRIMARY_DB_IDLE_TIMEOUT:300000}
+        connection-timeout: ${PRIMARY_DB_CONNECTION_TIMEOUT:20000}
+        max-lifetime: ${PRIMARY_DB_MAX_LIFETIME:1200000}
+        leak-detection-threshold: ${PRIMARY_DB_LEAK_DETECTION:60000}
+
+    # Secondary Database Configuration (Read Replica / Different DB)
+    secondary:
+      url: ${SECONDARY_DB_URL:jdbc:h2:mem:secondarydb;DB_CLOSE_DELAY=-1}
+      username: ${SECONDARY_DB_USERNAME:sa}
+      password: ${SECONDARY_DB_PASSWORD:}
+      driver-class-name: ${SECONDARY_DB_DRIVER:org.h2.Driver}
+      hikari:
+        pool-name: SecondaryHikariPool
+        maximum-pool-size: ${SECONDARY_DB_POOL_SIZE:10}
+        minimum-idle: ${SECONDARY_DB_MIN_IDLE:5}
+        idle-timeout: ${SECONDARY_DB_IDLE_TIMEOUT:300000}
+        connection-timeout: ${SECONDARY_DB_CONNECTION_TIMEOUT:20000}
+        max-lifetime: ${SECONDARY_DB_MAX_LIFETIME:1200000}
+
+  # H2 Console (for development)
+  h2:
+    console:
+      enabled: ${H2_CONSOLE_ENABLED:true}
+      path: /h2-console
+
+  # Redis Configuration (optional caching)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:2000}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # Cache Configuration
+  cache:
+    type: ${CACHE_TYPE:simple}
+    cache-names:
+      - users
+      - products
+      - orders
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/v1
+  tomcat:
+    threads:
+      max: ${SERVER_MAX_THREADS:200}
+      min-spare: ${SERVER_MIN_THREADS:10}
+
+# Application Configuration
+app:
+  sql:
+    base-path: classpath:sql/
+  async:
+    core-pool-size: ${ASYNC_CORE_POOL_SIZE:5}
+    max-pool-size: ${ASYNC_MAX_POOL_SIZE:10}
+    queue-capacity: ${ASYNC_QUEUE_CAPACITY:25}
+  pagination:
+    default-page-size: ${DEFAULT_PAGE_SIZE:20}
+    max-page-size: ${MAX_PAGE_SIZE:100}
+  external-api:
+    timeout: ${EXTERNAL_API_TIMEOUT:5000}
+    retry-attempts: ${EXTERNAL_API_RETRY:3}
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# OpenAPI Documentation
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.api: DEBUG
+    org.springframework.jdbc: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
