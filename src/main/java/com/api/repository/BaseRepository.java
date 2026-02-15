@@ -1,5 +1,6 @@
 package com.api.repository;
 
+import com.api.config.datasource.DataSourceRegistry;
 import com.api.dto.common.PageRequest;
 import com.api.util.PaginationHelper;
 import com.api.util.SqlLoader;
@@ -15,6 +16,10 @@ import java.util.Optional;
 /**
  * Base repository providing common CRUD operations using JdbcTemplate.
  * Uses external SQL files for all queries.
+ * 
+ * Supports two modes:
+ * 1. Direct JdbcTemplate injection (backwards compatible)
+ * 2. DataSourceRegistry-based dynamic database selection by name
  *
  * @param <T>  Entity type
  * @param <ID> ID type
@@ -25,7 +30,12 @@ public abstract class BaseRepository<T, ID> {
     protected final SqlLoader sqlLoader;
     protected final PaginationHelper paginationHelper;
     protected final String moduleName;
+    protected final DataSourceRegistry dataSourceRegistry;
+    protected final String databaseName;
 
+    /**
+     * Constructor for direct JdbcTemplate injection (backwards compatible).
+     */
     protected BaseRepository(NamedParameterJdbcTemplate jdbcTemplate,
                             SqlLoader sqlLoader,
                             PaginationHelper paginationHelper,
@@ -34,6 +44,52 @@ public abstract class BaseRepository<T, ID> {
         this.sqlLoader = sqlLoader;
         this.paginationHelper = paginationHelper;
         this.moduleName = moduleName;
+        this.dataSourceRegistry = null;
+        this.databaseName = null;
+    }
+
+    /**
+     * Constructor for dynamic database selection by name.
+     * Use this when you want to specify which database to connect to.
+     * 
+     * Example:
+     * <pre>
+     * public UserRepository(DataSourceRegistry registry, SqlLoader sqlLoader, PaginationHelper paginationHelper) {
+     *     super(registry, "InventoryDB", sqlLoader, paginationHelper, "user");
+     * }
+     * </pre>
+     */
+    protected BaseRepository(DataSourceRegistry dataSourceRegistry,
+                            String databaseName,
+                            SqlLoader sqlLoader,
+                            PaginationHelper paginationHelper,
+                            String moduleName) {
+        this.dataSourceRegistry = dataSourceRegistry;
+        this.databaseName = databaseName;
+        this.jdbcTemplate = dataSourceRegistry.getNamedParameterJdbcTemplate(databaseName);
+        this.sqlLoader = sqlLoader;
+        this.paginationHelper = paginationHelper;
+        this.moduleName = moduleName;
+    }
+
+    /**
+     * Get the database name this repository is connected to.
+     * Returns null if using direct JdbcTemplate injection.
+     */
+    public String getDatabaseName() {
+        return databaseName;
+    }
+
+    /**
+     * Get a JdbcTemplate for a different database.
+     * Useful for cross-database queries within a single repository.
+     */
+    protected NamedParameterJdbcTemplate getJdbcTemplateFor(String dbName) {
+        if (dataSourceRegistry == null) {
+            throw new IllegalStateException(
+                "DataSourceRegistry not available. Use the registry-based constructor.");
+        }
+        return dataSourceRegistry.getNamedParameterJdbcTemplate(dbName);
     }
 
     /**

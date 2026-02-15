@@ -1,11 +1,11 @@
 package com.api.repository;
 
+import com.api.config.datasource.DataSourceRegistry;
 import com.api.dto.common.PageRequest;
 import com.api.model.Order;
 import com.api.model.OrderItem;
 import com.api.util.PaginationHelper;
 import com.api.util.SqlLoader;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -18,6 +18,7 @@ import java.util.UUID;
 
 /**
  * Repository for Order entity operations.
+ * Connects to the primary database by default.
  */
 @Repository
 public class OrderRepository extends BaseRepository<Order, Long> {
@@ -25,10 +26,11 @@ public class OrderRepository extends BaseRepository<Order, Long> {
     private static final String MODULE_NAME = "order";
 
     public OrderRepository(
-            @Qualifier("primaryNamedParameterJdbcTemplate") NamedParameterJdbcTemplate jdbcTemplate,
+            DataSourceRegistry dataSourceRegistry,
             SqlLoader sqlLoader,
             PaginationHelper paginationHelper) {
-        super(jdbcTemplate, sqlLoader, paginationHelper, MODULE_NAME);
+        super(dataSourceRegistry, dataSourceRegistry.getPrimaryDataSourceName(),
+              sqlLoader, paginationHelper, MODULE_NAME);
     }
 
     @Override

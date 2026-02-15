@@ -1,10 +1,10 @@
 package com.api.repository;
 
+import com.api.config.datasource.DataSourceRegistry;
 import com.api.dto.common.PageRequest;
 import com.api.model.User;
 import com.api.util.PaginationHelper;
 import com.api.util.SqlLoader;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -16,17 +16,26 @@ import java.util.Optional;
 
 /**
  * Repository for User entity operations.
+ * Uses the DataSourceRegistry to connect to the database.
+ * 
+ * By default, connects to the primary database.
+ * To use a specific database, inject DataSourceRegistry and call methods with the database name.
  */
 @Repository
 public class UserRepository extends BaseRepository<User, Long> {
 
     private static final String MODULE_NAME = "user";
 
+    /**
+     * Constructor using the DataSourceRegistry.
+     * Connects to the primary database by default.
+     */
     public UserRepository(
-            @Qualifier("primaryNamedParameterJdbcTemplate") NamedParameterJdbcTemplate jdbcTemplate,
+            DataSourceRegistry dataSourceRegistry,
             SqlLoader sqlLoader,
             PaginationHelper paginationHelper) {
-        super(jdbcTemplate, sqlLoader, paginationHelper, MODULE_NAME);
+        super(dataSourceRegistry, dataSourceRegistry.getPrimaryDataSourceName(), 
+              sqlLoader, paginationHelper, MODULE_NAME);
     }
 
     @Override

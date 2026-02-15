@@ -2,36 +2,6 @@ spring:
   application:
     name: java-api
 
-  # Primary Database Configuration
-  datasource:
-    primary:
-      url: ${PRIMARY_DB_URL:jdbc:h2:mem:primarydb;DB_CLOSE_DELAY=-1}
-      username: ${PRIMARY_DB_USERNAME:sa}
-      password: ${PRIMARY_DB_PASSWORD:}
-      driver-class-name: ${PRIMARY_DB_DRIVER:org.h2.Driver}
-      hikari:
-        pool-name: PrimaryHikariPool
-        maximum-pool-size: ${PRIMARY_DB_POOL_SIZE:10}
-        minimum-idle: ${PRIMARY_DB_MIN_IDLE:5}
-        idle-timeout: ${PRIMARY_DB_IDLE_TIMEOUT:300000}
-        connection-timeout: ${PRIMARY_DB_CONNECTION_TIMEOUT:20000}
-        max-lifetime: ${PRIMARY_DB_MAX_LIFETIME:1200000}
-        leak-detection-threshold: ${PRIMARY_DB_LEAK_DETECTION:60000}
-
-    # Secondary Database Configuration (Read Replica / Different DB)
-    secondary:
-      url: ${SECONDARY_DB_URL:jdbc:h2:mem:secondarydb;DB_CLOSE_DELAY=-1}
-      username: ${SECONDARY_DB_USERNAME:sa}
-      password: ${SECONDARY_DB_PASSWORD:}
-      driver-class-name: ${SECONDARY_DB_DRIVER:org.h2.Driver}
-      hikari:
-        pool-name: SecondaryHikariPool
-        maximum-pool-size: ${SECONDARY_DB_POOL_SIZE:10}
-        minimum-idle: ${SECONDARY_DB_MIN_IDLE:5}
-        idle-timeout: ${SECONDARY_DB_IDLE_TIMEOUT:300000}
-        connection-timeout: ${SECONDARY_DB_CONNECTION_TIMEOUT:20000}
-        max-lifetime: ${SECONDARY_DB_MAX_LIFETIME:1200000}
-
   # H2 Console (for development)
   h2:
     console:
@@ -71,6 +41,41 @@ server:
 
 # Application Configuration
 app:
+  # Dynamic Datasources - Add as many as needed, reference by name
+  # Example: dataSourceRegistry.getNamedParameterJdbcTemplate("InventoryDB")
+  datasources:
+    # Default development database (H2 in-memory)
+    DefaultDB:
+      url: ${DEFAULT_DB_URL:jdbc:h2:mem:defaultdb;DB_CLOSE_DELAY=-1}
+      username: ${DEFAULT_DB_USERNAME:sa}
+      password: ${DEFAULT_DB_PASSWORD:}
+      driver-class-name: ${DEFAULT_DB_DRIVER:org.h2.Driver}
+      primary: true
+      hikari:
+        pool-name: DefaultDBPool
+        maximum-pool-size: 10
+        minimum-idle: 5
+        idle-timeout: 300000
+        connection-timeout: 20000
+        max-lifetime: 1200000
+        leak-detection-threshold: 60000
+
+    # Example: Add more databases as needed
+    # InventoryDB:
+    #   url: jdbc:postgresql://localhost:5432/inventory
+    #   username: postgres
+    #   password: secret
+    #   driver-class-name: org.postgresql.Driver
+    #   hikari:
+    #     pool-name: InventoryDBPool
+    #     maximum-pool-size: 15
+
+    # OrdersDB:
+    #   url: jdbc:mysql://localhost:3306/orders
+    #   username: root
+    #   password: secret
+    #   driver-class-name: com.mysql.cj.jdbc.Driver
+
   sql:
     base-path: classpath:sql/
   async:

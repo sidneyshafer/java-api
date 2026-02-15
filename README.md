@@ -24,9 +24,11 @@ src/main/java/com/api/
 │   ├── AsyncConfig.java         # Async execution config
 │   ├── CacheConfig.java         # Caching configuration
 │   ├── OpenApiConfig.java       # Swagger/OpenAPI config
-│   ├── PrimaryDataSourceConfig.java    # Primary DB config
-│   ├── SecondaryDataSourceConfig.java  # Secondary DB config
-│   └── WebConfig.java           # CORS and web config
+│   ├── WebConfig.java           # CORS and web config
+│   └── datasource/              # Dynamic datasource support
+│       ├── DataSourceProperties.java   # Config properties binding
+│       ├── DataSourceRegistry.java     # Named DB connection registry
+│       └── DynamicDataSourceConfig.java # Bean configuration
 ├── controller/                   # REST controllers
 │   ├── UserController.java
 │   ├── ProductController.java
@@ -53,10 +55,11 @@ src/main/java/com/api/
 │   ├── Order.java
 │   └── OrderItem.java
 ├── repository/                   # Data access layer
-│   ├── BaseRepository.java
+│   ├── BaseRepository.java      # Base with dynamic DB support
 │   ├── UserRepository.java
 │   ├── ProductRepository.java
-│   └── OrderRepository.java
+│   ├── OrderRepository.java
+│   └── InventoryRepository.java # Example: specific DB connection
 ├── service/
 │   ├── internal/                 # Internal business logic
 │   │   ├── UserService.java
@@ -73,6 +76,8 @@ src/main/resources/
 ├── application.yml               # Application configuration
 ├── schema.sql                    # Database schema
 └── sql/                          # External SQL files
+
+.env.example                      # Environment variables template
     ├── user/
     │   ├── create.sql
     │   ├── findById.sql
@@ -122,35 +127,90 @@ java -jar target/java-api-1.0.0.jar
 
 ### Environment Variables
 
+Copy `.env.example` to `.env` and configure for your environment.
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PRIMARY_DB_URL` | Primary database URL | `jdbc:h2:mem:primarydb` |
-| `PRIMARY_DB_USERNAME` | Primary DB username | `sa` |
-| `PRIMARY_DB_PASSWORD` | Primary DB password | (empty) |
-| `PRIMARY_DB_DRIVER` | Primary DB driver | `org.h2.Driver` |
-| `PRIMARY_DB_POOL_SIZE` | HikariCP max pool size | `10` |
-| `SECONDARY_DB_URL` | Secondary database URL | `jdbc:h2:mem:secondarydb` |
-| `SECONDARY_DB_USERNAME` | Secondary DB username | `sa` |
-| `SECONDARY_DB_PASSWORD` | Secondary DB password | (empty) |
+| `DEFAULT_DB_URL` | Default/primary database URL | `jdbc:h2:mem:defaultdb` |
+| `DEFAULT_DB_USERNAME` | Default DB username | `sa` |
+| `DEFAULT_DB_PASSWORD` | Default DB password | (empty) |
+| `DEFAULT_DB_DRIVER` | Default DB driver | `org.h2.Driver` |
 | `REDIS_HOST` | Redis host | `localhost` |
 | `REDIS_PORT` | Redis port | `6379` |
 | `SERVER_PORT` | Server port | `8080` |
+| `CACHE_TYPE` | Cache type (simple/redis) | `simple` |
+| `ASYNC_CORE_POOL_SIZE` | Async thread pool core size | `5` |
+| `DEFAULT_PAGE_SIZE` | Default pagination size | `20` |
 
 ### Multi-Database Setup
 
-The API supports connecting to multiple databases. Configure each datasource in `application.yml`:
+The API supports **unlimited named database connections**. Add databases under `app.datasources` in `application.yml`:
 
 ```yaml
-spring:
-  datasource:
-    primary:
-      url: ${PRIMARY_DB_URL:jdbc:postgresql://localhost:5432/primary}
-      username: ${PRIMARY_DB_USERNAME:user}
-      password: ${PRIMARY_DB_PASSWORD:password}
-    secondary:
-      url: ${SECONDARY_DB_URL:jdbc:postgresql://localhost:5432/secondary}
-      username: ${SECONDARY_DB_USERNAME:user}
-      password: ${SECONDARY_DB_PASSWORD:password}
+app:
+  datasources:
+    # Primary database (set primary: true)
+    DefaultDB:
+      url: jdbc:postgresql://localhost:5432/myapp
+      username: postgres
+      password: secret
+      driver-class-name: org.postgresql.Driver
+      primary: true
+      hikari:
+        pool-name: DefaultDBPool
+        maximum-pool-size: 10
+
+    # Add more databases with any name
+    InventoryDB:
+      url: jdbc:postgresql://inventory-host:5432/inventory
+      username: postgres
+      password: secret
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        maximum-pool-size: 15
+
+    OrdersDB:
+      url: jdbc:mysql://orders-host:3306/orders
+      username: root
+      password: secret
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+    ReportingDB:
+      url: jdbc:postgresql://reporting-host:5432/reports
+      username: readonly
+      password: secret
+      driver-class-name: org.postgresql.Driver
+```
+
+### Using Named Databases
+
+**In Repositories:**
+```java
+// Connect to a specific database by name
+public class InventoryRepository extends BaseRepository<Product, Long> {
+    public InventoryRepository(DataSourceRegistry registry, SqlLoader sqlLoader, PaginationHelper helper) {
+        super(registry, "InventoryDB", sqlLoader, helper, "product");
+    }
+}
+```
+
+**Via DataSourceRegistry:**
+```java
+@Autowired
+private DataSourceRegistry dataSourceRegistry;
+
+// Get JdbcTemplate for any named database
+NamedParameterJdbcTemplate inventoryJdbc = dataSourceRegistry.getNamedParameterJdbcTemplate("InventoryDB");
+NamedParameterJdbcTemplate ordersJdbc = dataSourceRegistry.getNamedParameterJdbcTemplate("OrdersDB");
+
+// List all available databases
+Set<String> dbNames = dataSourceRegistry.getDataSourceNames(); // [DefaultDB, InventoryDB, OrdersDB, ...]
+
+// Add a database at runtime
+dataSourceRegistry.addDataSource("NewDB", "jdbc:postgresql://...", "user", "pass", "org.postgresql.Driver");
+
+// Check if database exists
+boolean exists = dataSourceRegistry.hasDataSource("InventoryDB");
 ```
 
 ## API Endpoints
@@ -277,8 +337,9 @@ curl "http://localhost:8080/api/v1/products?page=0&size=10&sortBy=name&sortDirec
 - Horizontally scalable
 
 ### Connection Pooling
-- HikariCP with configurable pool sizes
-- Separate pools for primary and secondary databases
+- HikariCP with configurable pool sizes per database
+- Separate connection pools for each named database
+- Runtime database registration support
 
 ### Caching
 - In-memory caching for single instance
@@ -319,19 +380,34 @@ mvn test jacoco:report
 
 ## Production Deployment
 
-1. Set environment variables for database credentials
-2. Configure appropriate pool sizes for expected load
-3. Enable Redis for distributed caching if running multiple instances
-4. Review and adjust logging levels
-5. Enable actuator endpoints for monitoring
+1. Copy `.env.example` to `.env` and configure production values
+2. Configure all required databases under `app.datasources`
+3. Set appropriate pool sizes for expected load
+4. Enable Redis for distributed caching if running multiple instances
+5. Review and adjust logging levels
+6. Enable actuator endpoints for monitoring
+
+**Load environment and run:**
+```powershell
+# PowerShell - Load .env and run
+Get-Content .env | ForEach-Object { 
+  if ($_ -match '^([^#].+?)=(.*)$') { 
+    [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2]) 
+  } 
+}
+java -jar target/java-api-1.0.0.jar
+```
 
 ```bash
-# Production run example
+# Bash - Load .env and run
+export $(grep -v '^#' .env | xargs)
+java -jar target/java-api-1.0.0.jar
+```
+
+**Or pass variables directly:**
+```bash
 java -jar java-api-1.0.0.jar \
-  --spring.profiles.active=prod \
-  --PRIMARY_DB_URL=jdbc:postgresql://prod-db:5432/api \
-  --PRIMARY_DB_USERNAME=api_user \
-  --PRIMARY_DB_PASSWORD=${DB_PASSWORD}
+  --spring.profiles.active=prod
 ```
 
 ## License

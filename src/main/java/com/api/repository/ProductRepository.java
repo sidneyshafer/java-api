@@ -1,10 +1,10 @@
 package com.api.repository;
 
+import com.api.config.datasource.DataSourceRegistry;
 import com.api.dto.common.PageRequest;
 import com.api.model.Product;
 import com.api.util.PaginationHelper;
 import com.api.util.SqlLoader;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -16,6 +16,7 @@ import java.util.Optional;
 
 /**
  * Repository for Product entity operations.
+ * Connects to the primary database by default.
  */
 @Repository
 public class ProductRepository extends BaseRepository<Product, Long> {
@@ -23,10 +24,11 @@ public class ProductRepository extends BaseRepository<Product, Long> {
     private static final String MODULE_NAME = "product";
 
     public ProductRepository(
-            @Qualifier("primaryNamedParameterJdbcTemplate") NamedParameterJdbcTemplate jdbcTemplate,
+            DataSourceRegistry dataSourceRegistry,
             SqlLoader sqlLoader,
             PaginationHelper paginationHelper) {
-        super(jdbcTemplate, sqlLoader, paginationHelper, MODULE_NAME);
+        super(dataSourceRegistry, dataSourceRegistry.getPrimaryDataSourceName(),
+              sqlLoader, paginationHelper, MODULE_NAME);
     }
 
     @Override
