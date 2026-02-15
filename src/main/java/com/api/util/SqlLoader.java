@@ -144,8 +144,8 @@ public class SqlLoader {
      * Normalize SQL content by removing comments and extra whitespace.
      */
     private String normalizeSql(String sql) {
-        // Remove single-line comments
-        sql = sql.replaceAll("--.*$", "");
+        // Remove single-line comments (multiline flag so $ matches each line end)
+        sql = sql.replaceAll("(?m)--.*$", "");
         // Remove multi-line comments
         sql = sql.replaceAll("/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/", "");
         // Normalize whitespace

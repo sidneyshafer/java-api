@@ -98,6 +98,9 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    redis:
+      enabled: ${REDIS_HEALTH_ENABLED:false}
 
 # OpenAPI Documentation
 springdoc:

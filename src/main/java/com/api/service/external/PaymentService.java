@@ -38,14 +38,14 @@ public class PaymentService {
      */
     @Async("externalApiExecutor")
     public CompletableFuture<PaymentResult> processPaymentAsync(PaymentRequest request) {
-        log.info("Processing payment for order: {}", request.getOrderId());
+        log.info("Processing payment for order: {}", request.orderId());
         
         try {
             // Simulate external API call with retry logic
             PaymentResult result = executeWithRetry(() -> processPayment(request));
             return CompletableFuture.completedFuture(result);
         } catch (Exception e) {
-            log.error("Payment processing failed for order: {}", request.getOrderId(), e);
+            log.error("Payment processing failed for order: {}", request.orderId(), e);
             return CompletableFuture.completedFuture(
                     new PaymentResult("FAILED", null, e.getMessage()));
         }
